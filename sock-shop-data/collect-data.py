@@ -8,13 +8,13 @@ import requests
 import numpy as np
 import pandas as pd
 
-HOST_TEMPLATE = "http://{}:31090/"
+HOST_TEMPLATE = "http://{}:{}/"
 MAX_RESOLUTION = 11_000 # Maximum resolution of Prometheus
 SOCK_SHOP_NS = "sock-shop" # # Sock-shop namespace
 
 # Names of the sock-shop containers
 # The data will be collected for all of these containers
-CONTAINERS = {
+KUBE_CONTAINERS = {
     'carts',
     'carts-db',
     'catalogue',
@@ -30,9 +30,25 @@ CONTAINERS = {
     'user-db'
 }
 
+CONTAINERS = {
+    'docker-compose_carts_1',
+    'docker-compose_carts-db_1',
+    'docker-compose_catalogue_1',
+    'docker-compose_catalogue-db_1',
+    'docker-compose_front-end_1',
+    'docker-compose_orders_1',
+    'docker-compose_orders-db_1',
+    'docker-compose_payment_1',
+    'docker-compose_queue-master_1',
+    'docker-compose_rabbitmq_1',
+    'docker-compose_shipping_1',
+    'docker-compose_user_1',
+    'docker-compose_user-db_1'
+}
+
 STEP = 1 # In seconds
 DURATION = "45s"
-QUERIES = {
+KUBE_QUERIES = {
             "cpu": f"sum(rate(container_cpu_usage_seconds_total{{namespace='{SOCK_SHOP_NS}'}} [{DURATION}])) by (container) * 100",
             "mem": f"sum(container_memory_usage_bytes{{namespace='{SOCK_SHOP_NS}'}}) by (container)",
             "lod": f"sum(rate(request_duration_seconds_count [{DURATION}])) by (name)",
@@ -40,6 +56,15 @@ QUERIES = {
             "lat_90": f"histogram_quantile(0.90, sum(rate(request_duration_seconds_bucket{{kubernetes_namespace=~'{SOCK_SHOP_NS}'}} [{DURATION}])) by (name, le))",
             "lat_99": f"histogram_quantile(0.99, sum(rate(request_duration_seconds_bucket{{kubernetes_namespace=~'{SOCK_SHOP_NS}'}} [{DURATION}])) by (name, le))",
             "err": f"sum(rate(request_duration_seconds_count{{kubernetes_namespace='{SOCK_SHOP_NS}', status_code=~'4.+|5.+'}} [{DURATION}])) by (name) / sum(rate(request_duration_seconds_count{{kubernetes_namespace='{SOCK_SHOP_NS}'}} [{DURATION}])) by (name)"
+}
+QUERIES = {
+            "cpu": f"sum by (name)(rate(container_cpu_usage_seconds_total[{DURATION}])) * 100",
+            "mem": f"sum by (name)(container_memory_usage_bytes)",
+            "lod": f"sum by (name)(rate(request_duration_seconds_count [{DURATION}]))",
+            "lat_50": f"histogram_quantile(0.50, sum by (name, le)(rate(request_duration_seconds_bucket [{DURATION}])))",
+            "lat_90": f"histogram_quantile(0.90, sum by (name, le)(rate(request_duration_seconds_bucket [{DURATION}])))",
+            "lat_99": f"histogram_quantile(0.99, sum by (name, le)(rate(request_duration_seconds_bucket [{DURATION}])))",
+            "err": f"sum by (name)(rate(request_duration_seconds_count{{status_code=~'4.+|5.+'}} [{DURATION}])) / sum by (name)(rate(request_duration_seconds_count[{DURATION}]))"
 }
 
 # Merge two dictionaries of lists by appending the entries to the list.
@@ -60,14 +85,27 @@ def _exec_query(query, start_time, end_time, host):
                                 })
     data = {}
     results = response.json()['data']['result']
-    for result in results:
-        if all(k not in result['metric'].keys() for k in ['container', 'name']): continue
-        if 'container' in result['metric']:
-            service_name = result['metric']['container']
-        else:
-            service_name = result['metric']['name']
-        if service_name not in CONTAINERS: continue
-        data[service_name] = result['values']
+    uncollected_containers = []
+    if response.json()['status']!='error':
+        for result in results:
+            if all(k not in result['metric'].keys() for k in ['container', 'name']): continue
+            if 'container' in result['metric']:
+                service_name = result['metric']['container']
+            else:
+                service_name = result['metric']['name']
+                # print(response.url)
+                # print(service_name)
+            if service_name not in CONTAINERS:
+                uncollected_containers.append(service_name)
+                continue
+            data[service_name] = result['values']
+    else:
+        print('error')
+        print(response.json())
+    
+    if len(uncollected_containers)>0:
+        print(f"{', '.join(uncollected_containers)} not in specified list of containers")
+        
     return data
 
 # Given a valid query, extracts the relevant data
@@ -124,6 +162,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Collect data from Prometheus for sock-shop')
 
     parser.add_argument('--ip', type=str, required=True, help='The ip of vm/container running Prometheus')
+    parser.add_argument('--port', type=str, default='9090', help='The ip of vm/container running Prometheus')
     parser.add_argument('--start', type=int, required=True, help='The start time')
     parser.add_argument('--end', type=int, required=True, help='The end time')
     parser.add_argument('--name', type=str, default='data.csv', help='The name/path of the file')
@@ -131,12 +170,13 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     ip = args.ip
+    port = args.port
     start = args.start
     end = args.end
     name = args.name
     append = args.append
 
-    host = HOST_TEMPLATE.format(ip)
+    host = HOST_TEMPLATE.format(ip, port)
     df = pd.DataFrame(make_dict_list_equal(get_data(QUERIES, start, end, host)))
     if append:
         df.to_csv(name, index=False, mode='a', header=False)
