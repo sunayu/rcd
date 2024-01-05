@@ -2,7 +2,7 @@
 Source code for [Root Cause Analysis of Failures in Microservices through Causal Discovery](https://proceedings.neurips.cc/paper_files/paper/2022/file/c9fcd02e6445c7dfbad6986abee53d0d-Paper-Conference.pdf).
 
 ## Setup
-The following insutrctions assume that you are running Ubuntu-20.04.
+The following instructions assume that you are running Ubuntu-22.04.
 #### Install python env
 ```bash
 sudo apt update
@@ -24,7 +24,7 @@ python3 -m pip install --upgrade pip
 
 #### Install dependencies
 ```bash
-git clone https://github.com/azamikram/rcd.git
+git clone https://github.com/sunayu/rcd.git
 cd rcd
 pip install -r requirements.txt
 ```
@@ -35,11 +35,11 @@ Some of these changes expose some internal information for reporting results (fo
 
 Assuming the rcd repository was cloned at home, execute the following;
 ```bash
-ln -fs ~/rcd/pyAgrum/lib/image.py ~/env/lib/python3.8/site-packages/pyAgrum/lib/
-ln -fs ~/rcd/causallearn/search/ConstraintBased/FCI.py ~/env/lib/python3.8/site-packages/causallearn/search/ConstraintBased/
-ln -fs ~/rcd/causallearn/utils/Fas.py ~/env/lib/python3.8/site-packages/causallearn/utils/
-ln -fs ~/rcd/causallearn/utils/PCUtils/SkeletonDiscovery.py ~/env/lib/python3.8/site-packages/causallearn/utils/PCUtils/
-ln -fs ~/rcd/causallearn/graph/GraphClass.py ~/env/lib/python3.8/site-packages/causallearn/graph/
+ln -fs ~/rcd/pyAgrum/lib/image.py ~/env/lib/python*/site-packages/pyAgrum/lib/
+ln -fs ~/rcd/causallearn/search/ConstraintBased/FCI.py ~/env/lib/python*/site-packages/causallearn/search/ConstraintBased/
+ln -fs ~/rcd/causallearn/utils/Fas.py ~/env/lib/python*/site-packages/causallearn/utils/
+ln -fs ~/rcd/causallearn/utils/PCUtils/SkeletonDiscovery.py ~/env/lib/python*/site-packages/causallearn/utils/PCUtils/
+ln -fs ~/rcd/causallearn/graph/GraphClass.py ~/env/lib/python*/site-packages/causallearn/graph/
 ```
 
 ## Using RCD
